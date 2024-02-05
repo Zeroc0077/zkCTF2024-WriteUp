@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	SRS_SIZE = 16
+	SRS_SIZE = 17
 )
 
 func panicErr(err error) {
@@ -105,12 +105,12 @@ func ordinal(n int) string {
 
 func main() {
 	var action = flag.String("action", "register", "action to perform")
-	var contractAddr = flag.String("contract", "", "contract address")
+	var contractAddr = flag.String("contract", "0x3F89Dc2ebd914b504b7642e5E1D26de41bB37B2a", "contract address")
 	var rpcAddr = flag.String("rpc", "http://47.76.89.7:8545", "rpc address")
 	// --------------------------------------------------
 	// Note: Please change the account and pk to your own
-	var accountAddr = flag.String("account", "your_address", "account address")
-	var privateKey = flag.String("pk", "your_pk", "private key")
+	var accountAddr = flag.String("account", "0x293F6635aDDb02351D31D8D5aD62c9E2dee9688F", "account address")
+	var privateKey = flag.String("pk", "1b5ff873be9dceecdd0445fcb83208cea3ee14bebeb6102dcbfdb6c027d257bf", "private key")
 	// --------------------------------------------------
 	flag.Parse()
 	contractAddress := common.HexToAddress(*contractAddr)
@@ -128,6 +128,7 @@ func main() {
 		sword := ForgeSword()
 		bladeCommitment, bladeProof := CraftBladeSignature(sword, SRS)
 		commitmentPoint := G1AffineToG1Point(&bladeCommitment)
+		spew.Dump(commitmentPoint)
 		bladeProofPoint := G1AffineToG1Point(&bladeProof.H)
 		soulBox := G1AffineToG1Point(&bladeProof.PublicKeyG1Aff)
 		mintContract.Register(transactor, *commitmentPoint, *bladeProofPoint, *soulBox)
