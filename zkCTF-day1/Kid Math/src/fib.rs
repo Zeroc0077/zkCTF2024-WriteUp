@@ -1,16 +1,8 @@
 use halo2_proofs::arithmetic::FieldExt;
+use halo2_proofs::poly::Rotation;
 use halo2_proofs::{
-    arithmetic::Field,
-    circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
-    dev::MockProver,
-    pasta::{EqAffine, Fp},
-    plonk::{
-        create_proof, keygen_pk, keygen_vk, verify_proof, Advice, Circuit, Column,
-        ConstraintSystem, Error, Expression, Fixed, Instance, ProvingKey, Selector, SingleVerifier,
-        VerifyingKey,
-    },
-    poly::{commitment::Params, Rotation},
-    transcript::{Blake2bRead, Blake2bWrite, Challenge255},
+    circuit::{AssignedCell, Layouter, SimpleFloorPlanner},
+    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance, Selector},
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -57,9 +49,16 @@ impl<F: FieldExt> FibonacciChip<F> {
         meta.enable_equality(instance);
 
         ///////////////////////// Please implement code here /////////////////////////
-        unimplemented!();
+        // unimplemented!();
         ///////////////////////// End implement /////////////////////////
-        
+        meta.create_gate("add", |meta| {
+            let s = meta.query_selector(selector);
+            let a = meta.query_advice(col_a, Rotation::cur());
+            let b = meta.query_advice(col_b, Rotation::cur());
+            let c = meta.query_advice(col_c, Rotation::cur());
+            vec![s * (a + b - c)]
+        });
+
         FibonacciConfig {
             col_a,
             col_b,
@@ -107,20 +106,32 @@ impl<F: FieldExt> FibonacciChip<F> {
 
                 // Assign pa here!
                 ///////////////////////// Please implement code here /////////////////////////
-                unimplemented!();
+                // unimplemented!();
+                // region.assign_fixed(
+                //     || "pa",
+                //     self.config.col_pa,
+                //     0,
+                //     || Value::known(F::from(126)),
+                // )?;
                 ///////////////////////// End implement /////////////////////////
                 // Assign pb here!
                 ///////////////////////// Please implement code here /////////////////////////
-                region.assign_fixed(
-                    || "pb",
-                    self.config.col_pb,
-                    0,
-                    || Value::known(F::from(127)),
-                )?;
+                // region.assign_fixed(
+                //     || "pb",
+                //     self.config.col_pb,
+                //     0,
+                //     || Value::known(F::from(127)),
+                // )?;
                 ///////////////////////// End implement /////////////////////////
                 // Assign pc here!
                 ///////////////////////// Please implement code here /////////////////////////
-                unimplemented!();
+                // unimplemented!();
+                // region.assign_fixed(
+                //     || "pc",
+                //     self.config.col_pc,
+                //     0,
+                //     || Value::known(F::from(128)),
+                // )?;
                 ///////////////////////// End implement /////////////////////////
                 Ok((a_cell, b_cell, c_cell))
             },
@@ -137,26 +148,42 @@ impl<F: FieldExt> FibonacciChip<F> {
             || "next row",
             |mut region| {
                 self.config.selector.enable(&mut region, 0)?;
-=
+
                 prev_b.copy_advice(|| "a", &mut region, self.config.col_a, 0)?;
                 prev_c.copy_advice(|| "b", &mut region, self.config.col_b, 0)?;
 
-                let c_cell =
-                    region.assign_advice(|| "c", self.config.col_c, 0, || unimplemented!())?;
-
-                region.assign_fixed(
-                    || "pa",
-                    self.config.col_pa,
+                let c_cell = region.assign_advice(
+                    || "c",
+                    self.config.col_c,
                     0,
-                    || Value::known(F::from(125)),
+                    || prev_b.value().copied() + prev_c.value(),
                 )?;
+
+                // region.assign_fixed(
+                //     || "pa",
+                //     self.config.col_pa,
+                //     0,
+                //     || Value::known(F::from(125)),
+                // )?;
                 // Assign pb here!
                 ///////////////////////// Please implement code here /////////////////////////
-                unimplemented!();
+                // unimplemented!();
+                // region.assign_fixed(
+                //     || "pb",
+                //     self.config.col_pb,
+                //     0,
+                //     || Value::known(F::from(126)),
+                // )?;
                 ///////////////////////// End implement /////////////////////////
                 // Assign pc here!
                 ///////////////////////// Please implement code here /////////////////////////
-                unimplemented!();
+                // unimplemented!();
+                // region.assign_fixed(
+                //     || "pc",
+                //     self.config.col_pc,
+                //     0,
+                //     || Value::known(F::from(127)),
+                // )?;
                 ///////////////////////// End implement /////////////////////////
                 Ok(c_cell)
             },
@@ -219,14 +246,14 @@ mod tests {
     fn fibonacci_example1() {
         let k = 4;
         //1,2,3,5,?
-        let quiz = 1;
+        let quiz = 8;
         let a = Fp::from(1); // F[0]
         let b = Fp::from(2); // F[1]
         let out = Fp::from(quiz); // F[5]
 
         let circuit = FibonacciCircuit(PhantomData);
 
-        let mut public_input = vec![a, b, out];
+        let public_input = vec![a, b, out];
 
         let prover = MockProver::run(k, &circuit, vec![public_input.clone()]).unwrap();
         prover.assert_satisfied();

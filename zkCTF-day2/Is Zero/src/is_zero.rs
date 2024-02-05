@@ -1,10 +1,9 @@
 use std::marker::PhantomData;
 
-use halo2_proofs::halo2curves::ff::PrimeField;
 use halo2_proofs::{
     arithmetic::Field,
     circuit::{AssignedCell, Chip, Layouter, Region, SimpleFloorPlanner, Value},
-    plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Expression, Selector},
+    plonk::{Advice, Assigned, Circuit, Column, ConstraintSystem, Error, Expression, Selector},
     poly::Rotation,
 };
 
@@ -57,9 +56,21 @@ impl<F: Field> FieldChip<F> {
             meta.enable_equality(*column);
         }
         let s_is_zero = meta.selector();
-        ///////////////////////// Please implement code here /////////////////////////
-        unimplemented!();
-        ///////////////////////// End implement /////////////////////////
+        // b = 1 or a * c = 1
+        meta.create_gate("is_inv", |meta| {
+            let s = meta.query_selector(s_is_zero);
+            let a = meta.query_advice(advice[0], Rotation::cur());
+            let b = meta.query_advice(advice[1], Rotation::cur());
+            let c = meta.query_advice(advice[2], Rotation::cur());
+            vec![s * (b - Expression::Constant(F::ONE)) * (a * c - Expression::Constant(F::ONE))]
+        });
+        // a*b always equals 0
+        meta.create_gate("mul", |meta| {
+            let s = meta.query_selector(s_is_zero);
+            let a = meta.query_advice(advice[0], Rotation::cur());
+            let b = meta.query_advice(advice[1], Rotation::cur());
+            vec![s * a * b]
+        });
         FieldConfig { advice, s_is_zero }
     }
 }
@@ -84,6 +95,7 @@ struct Number<F: Field>(AssignedCell<F, F>);
 impl<F: Field> NumericInstructions<F> for FieldChip<F> {
     type Num = Number<F>;
 
+    // Load private inputs into the circuit.
     fn load_private(
         &self,
         mut layouter: impl Layouter<F>,
@@ -114,20 +126,32 @@ impl<F: Field> NumericInstructions<F> for FieldChip<F> {
         b: &[Self::Num],
     ) -> Result<Vec<Self::Num>, Error> {
         let config = self.config();
-        assert_eq!(a.len(), b.len());
+        assert_eq!(a.len(), b.len()); // check that the vectors are the same length
 
         layouter.assign_region(
             || "is_zero",
             |mut region: Region<'_, F>| {
-                a.iter()
+                let result: Vec<Number<F>> = a
+                    .iter()
                     .zip(b.iter())
                     .enumerate()
-                    .map(|(i, (a, b))| {
-                        ///////////////////////// Please implement code here /////////////////////////
-                        unimplemented!();
-                        ///////////////////////// End implement /////////////////////////
+                    .map(|(_i, (a, b))| {
+                        // Enable the s_is_zero selector
+                        config.s_is_zero.enable(&mut region, 0).unwrap();
+                        let _a_cell = region
+                            .assign_advice(|| "a", config.advice[0], 0, || a.0.value().copied())
+                            .unwrap();
+                        let _b_cell = region
+                            .assign_advice(|| "b", config.advice[1], 0, || b.0.value().copied())
+                            .unwrap();
+                        let a_inv: Value<Assigned<F>> = a.0.value_field().invert();
+                        let c_cell = region
+                            .assign_advice(|| "c", config.advice[2], 0, || a_inv.evaluate())
+                            .unwrap();
+                        Number(c_cell)
                     })
-                    .collect()
+                    .collect();
+                Ok(result)
             },
         )
     }
@@ -175,17 +199,6 @@ impl<F: Field> Circuit<F> for MyCircuit<F> {
     }
 }
 
-pub fn get_example_circuit<F: PrimeField>() -> MyCircuit<F> {
-    let a = [F::from(0), F::from(2)];
-    let b = [F::from(1), F::from(0)];
-
-    // Instantiate the circuit with private inputs.
-    MyCircuit {
-        a: a.iter().map(|&x| Value::known(x)).collect(),
-        b: b.iter().map(|&x| Value::known(x)).collect(),
-    }
-}
-
 #[test]
 fn is_zero_circuit_test() {
     use halo2_proofs::dev::MockProver;
@@ -195,8 +208,8 @@ fn is_zero_circuit_test() {
 
     // good case 0 : input == 0 and output ==1
     // good case 1 : (input == 2 and output == 0)
-    let a = [Fp::from(0), Fp::from(2)];
-    let b = [Fp::from(1), Fp::from(0)];
+    let a = [Fp::from(0), Fp::from(2), Fp::from(9)];
+    let b = [Fp::from(1), Fp::from(0), Fp::from(0)];
     let circuit = MyCircuit {
         a: a.iter().map(|&x| Value::known(x)).collect(),
         b: b.iter().map(|&x| Value::known(x)).collect(),

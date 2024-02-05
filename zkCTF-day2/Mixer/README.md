@@ -85,3 +85,4 @@ function withdraw(
 Staring at the value of nullifier, I remembered the article I had read about the [double-spend vulnerability](https://secbit.io/blog/2019/07/29/the-input-aliasing-bug-caused-by-a-contract-library-of-zksnarks/).
 
 So the problem can be solved by reusing the `nullifier` plus the modulus.
+
